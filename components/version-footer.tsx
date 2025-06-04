@@ -54,22 +54,22 @@ export const VersionFooter = ({
           disabled={isMutating}
           onClick={async () => {
             setIsMutating(true);
+            try {
+              await mutate(
+                `/api/document?id=${artifact.documentId}`,
+                async (currentDocuments?: Array<Document>) => {
+                  await fetch(`/api/document?id=${artifact.documentId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                      timestamp: getDocumentTimestampByIndex(
+                        documents,
+                        currentVersionIndex,
+                      ),
+                    }),
+                  });
 
-            mutate(
-              `/api/document?id=${artifact.documentId}`,
-              await fetch(`/api/document?id=${artifact.documentId}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  timestamp: getDocumentTimestampByIndex(
-                    documents,
-                    currentVersionIndex,
-                  ),
-                }),
-              }),
-              {
-                optimisticData: documents
-                  ? [
-                      ...documents.filter((document) =>
+                  return currentDocuments
+                    ? currentDocuments.filter((document) =>
                         isAfter(
                           new Date(document.createdAt),
                           new Date(
@@ -79,11 +79,31 @@ export const VersionFooter = ({
                             ),
                           ),
                         ),
-                      ),
-                    ]
-                  : [],
-              },
-            );
+                      )
+                    : [];
+                },
+                {
+                  optimisticData: documents
+                    ? [
+                        ...documents.filter((document) =>
+                          isAfter(
+                            new Date(document.createdAt),
+                            new Date(
+                              getDocumentTimestampByIndex(
+                                documents,
+                                currentVersionIndex,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]
+                    : [],
+                  revalidate: false,
+                },
+              );
+            } finally {
+              setIsMutating(false);
+            }
           }}
         >
           <div>Restore this version</div>
